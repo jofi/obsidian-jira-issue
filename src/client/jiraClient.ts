@@ -1,6 +1,6 @@
 import { Platform, requestUrl, RequestUrlParam, RequestUrlResponse } from 'obsidian'
 import { AVATAR_RESOLUTION, EAuthenticationTypes, IJiraIssueAccountSettings } from '../interfaces/settingsInterfaces'
-import { ESprintState, IJiraAutocompleteField, IJiraBoard, IJiraDevStatus, IJiraField, IJiraIssue, IJiraSearchResults, IJiraSprint, IJiraStatus, IJiraUser } from '../interfaces/issueInterfaces'
+import { ESprintState, IJiraAutocompleteField, IJiraBoard, IJiraDevStatus, IJiraField, IJiraIssue, IJiraSearchResults, IJiraSprint, IJiraStatus, IJiraUser, IJiraWorklog } from '../interfaces/issueInterfaces'
 import { SettingsData } from "../settings"
 
 interface RequestOptions {
@@ -221,6 +221,50 @@ export default {
             await fetchIssueImages(issue)
         }
         return searchResults
+    },
+
+    // Get all worklogs for a specific issue, handling pagination
+    async getWorklogOfIssue(issueKey: string, options: { startAt?: number, maxResults?: number, account?: IJiraIssueAccountSettings } = {}): Promise<IJiraWorklog[]> {
+      const opt = {
+        maxResults: options.maxResults || 100,
+        startAt: options.startAt || 0,
+        account: options.account || null,
+      }
+      let allWorklogs: IJiraWorklog[] = [];
+      let startAt = opt.startAt;
+      const maxResults = opt.maxResults; // Adjust this value as needed
+
+      while (true) {        
+          const queryParameters = new URLSearchParams();
+          queryParameters.append('startAt', startAt.toString());
+          queryParameters.append('maxResults', maxResults.toString());
+
+          const requestOptions: RequestOptions = {
+              method: 'GET',
+              path: `/issue/${issueKey}/worklog`,
+              queryParameters: queryParameters,
+              account: opt.account
+          };
+
+          try {
+              const response = await sendRequest(requestOptions);
+              const worklogs: IJiraWorklog[] = response.worklogs;
+
+              worklogs.map(worklog => {worklog.issueKey = issueKey})
+
+              allWorklogs = allWorklogs.concat(worklogs);
+
+              if (worklogs.length < maxResults) {
+                  break; // No more worklogs to fetch
+              }
+
+              startAt += maxResults;
+          } catch (error) {
+              console.error(`Error fetching worklogs for issue ${issueKey}:`, error);
+              break;
+          }
+      }
+      return allWorklogs;
     },
 
     async updateStatusColorCache(status: string, account: IJiraIssueAccountSettings): Promise<void> {

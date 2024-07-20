@@ -1,4 +1,4 @@
-import { ESprintState, IJiraSprint, IJiraWorklog, ISeries } from "../interfaces/issueInterfaces"
+import { ESprintState, IJiraIssue, IJiraSprint, IJiraWorklog, ISeries } from "../interfaces/issueInterfaces"
 import API from "./api"
 import moment from "moment"
 const ms = require('ms')
@@ -7,7 +7,34 @@ function dateTimeToDate(dateTime: string): string {
     if (dateTime.match(/^\d/)) {
         return moment(dateTime).format('YYYY-MM-DD')
     }
-    return null
+    return dateTime;
+}
+
+async function getIssuesWithWorklogByDates(projectKeysOrIds: string, startDate: string, endDate: string = 'now()'): Promise<IJiraIssue[]> {
+  const searchResults = await API.base.getSearchResults(
+    `project IN (${projectKeysOrIds}) AND worklogDate >= ${dateTimeToDate(startDate)} AND worklogDate < ${dateTimeToDate(endDate)}`,
+    { limit: 150, fields: ['key'] }
+  )
+  try {
+      return searchResults.issues;
+  } catch (error) {
+      console.error('Error fetching issues:', error);
+      return [];
+  }
+}
+
+async function getWorklogOfIssueByDates(issueKey: string, startDate: string, endDate: string): Promise<IJiraWorklog[]> {
+  const authorWorklogs = await API.base.getWorklogOfIssue(issueKey)
+
+  const startDateMoment: moment.Moment = moment(startDate);
+  const endDateMoment: moment.Moment = moment(endDate);
+
+  const filteredWorklogs = authorWorklogs.filter(worklog => {
+    const worklogDate = moment(worklog.started);
+    return worklogDate.isBetween(startDateMoment, endDateMoment);
+  });
+
+  return filteredWorklogs;
 }
 
 export async function getActiveSprint(projectKeyOrId: string): Promise<IJiraSprint> {
@@ -35,7 +62,21 @@ export async function getWorkLogBySprintId(projectKeyOrId: string, sprintId: num
     return await getWorkLogByDates(projectKeyOrId, sprint.startDate, sprint.endDate)
 }
 
-export async function getWorkLogByDates(projectKeyOrId: string, startDate: string, endDate: string = 'now()'): Promise<IJiraWorklog[]> {
+export async function getWorkLogByDates(projectKeysOrIds: string, startDate: string, endDate: string = 'now()'): Promise<IJiraWorklog[]> {
+  const issues = await getIssuesWithWorklogByDates(projectKeysOrIds, startDate, endDate);
+  const issueKeys = issues.map(issue => {return issue.key});
+
+  let allWorklogs: IJiraWorklog[] = [];
+
+  for (const issueKey of issueKeys) {
+    const worklogs = await getWorklogOfIssueByDates(issueKey,startDate, endDate);
+    allWorklogs = allWorklogs.concat(worklogs);
+  }
+
+  return allWorklogs;
+}
+
+export async function getWorkLogByDatesOld(projectKeyOrId: string, startDate: string, endDate: string = 'now()'): Promise<IJiraWorklog[]> {
     const searchResults = await API.base.getSearchResults(
         `project = "${projectKeyOrId}" AND worklogDate > ${dateTimeToDate(startDate)} AND worklogDate < ${dateTimeToDate(endDate)}`,
         { limit: 50, fields: ['worklog'] }

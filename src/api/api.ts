@@ -3,7 +3,7 @@ import ObjectsCache from "../objectsCache"
 import { getActiveSprint, getActiveSprintName, getVelocity, getWorkLogByDates, getWorkLogBySprint, getWorkLogBySprintId, getWorkLogSeriesByUser } from "./apiMacro"
 import { getDefaultedSearchResults, getIssueDefaulted } from "./apiDefaulted"
 import { getWorklogPerDay, getWorklogPerUser } from "./apiChart"
-import { getBoards, getDevStatus, getIssue, getLoggedUser, getSearchResults, getSprint, getSprints } from "./apiBase"
+import { getBoards, getDevStatus, getIssue, getLoggedUser, getSearchResults, getSprint, getSprints, getWorklogOfIssue } from "./apiBase"
 
 const API = {
     base: {
@@ -14,6 +14,7 @@ const API = {
         getSprint: getSprint,
         getSprints: getSprints,
         getLoggedUser: getLoggedUser,
+        getWorklogOfIssue: getWorklogOfIssue,
     },
     defaulted: {
         getIssue: getIssueDefaulted,
