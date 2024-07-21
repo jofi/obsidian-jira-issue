@@ -8,17 +8,21 @@ const CHART_WIDTH = '800px'
 enum EChartFormat {
     HOURS = 'Hours',
     DAYS = 'Days',
-    PERCENTAGE = 'Percentage',
+    MANDAYS = "Mandays",
+    PERCENTAGE = 'Percentage'
 }
+
+const DEFAULT_CAPACITY_UNITS = new Map<EChartFormat, string>([
+  [EChartFormat.HOURS, "1h"],
+  [EChartFormat.DAYS,  "1d"],
+  [EChartFormat.MANDAYS, "8h"],
+  [EChartFormat.PERCENTAGE, "1d"],
+])
 
 interface IChartSeries {
     title: string
     data: number[]
 }
-
-const MS_IN_A_DAY = ms('1d')
-const MS_IN_A_HOUR = ms('1h')
-
 
 function createChart(type: string, labels: string[], series: IChartSeries[]) {
     return `\`\`\`chart
@@ -34,8 +38,12 @@ ${series.map(s => {
 }
 
 
-export async function getWorklogPerDay(projectKeyOrId: string, startDate: string, endDate: string = 'now()') {
+export async function getWorklogPerDay(projectKeyOrId: string, startDate: string, endDate: string = 'now()', options: { authors?: string[] } = {}) {
     const worklogs = await API.macro.getWorkLogByDates(projectKeyOrId, startDate, endDate)
+    const opts = {
+      authors: options.authors || null
+    }
+
     const labels = []
     const emptySeries: ISeries = {}
     const intervalStart = moment(startDate)
@@ -46,13 +54,15 @@ export async function getWorklogPerDay(projectKeyOrId: string, startDate: string
     }
     const usersSeries: IMultiSeries = {}
     for (const worklog of worklogs) {
-        const author = worklog.author.name
-        if (!usersSeries[author]) {
-            usersSeries[author] = Object.assign({}, emptySeries)
-        }
-        const worklogStart = moment(worklog.started).format('YYYY-MM-DD')
-        if (worklogStart in usersSeries[author]) {
-            usersSeries[author][worklogStart] += worklog.timeSpentSeconds
+        const author = worklog.author.emailAddress
+        if ( (opts.authors == null) || ((opts.authors != null) && (opts.authors.includes(author))) ) {
+          if (!usersSeries[author]) {
+              usersSeries[author] = Object.assign({}, emptySeries)
+          }
+          const worklogStart = moment(worklog.started).format('YYYY-MM-DD')
+          if (worklogStart in usersSeries[author]) {
+              usersSeries[author][worklogStart] += worklog.timeSpentSeconds
+          }
         }
     }
 
@@ -66,38 +76,39 @@ export async function getWorklogPerDay(projectKeyOrId: string, startDate: string
         }))
 }
 
-export async function getWorklogPerUser(projectKeyOrId: string, startDate: string, endDate: string = 'now()', options: { format?: EChartFormat, capacity?: ISeries } = {}) {
+// Capacity is in days, or Mandays
+export async function getWorklogPerUser(projectKeyOrId: string, startDate: string, endDate: string = 'now()', options: { format?: EChartFormat, capacity?: ISeries, capacityUnit?: string, maxCapacity?: number } = {}) {
+    const format = options.format || EChartFormat.PERCENTAGE
     const opt = {
-        format: options.format || EChartFormat.PERCENTAGE,
+        format: format,
         capacity: options.capacity || null,
+        capacityUnit: options.capacityUnit || DEFAULT_CAPACITY_UNITS.get(format),
+        maxCapacity: options.maxCapacity || moment.duration(moment(endDate).diff(startDate)).asDays()
     }
     const series = await API.macro.getWorkLogSeriesByUser(projectKeyOrId, startDate, endDate)
     switch (opt.format) {
         case EChartFormat.HOURS:
-            for (const a in series) {
-                series[a] = series[a] / MS_IN_A_HOUR
-            }
-            break
+        case EChartFormat.MANDAYS:
         case EChartFormat.DAYS:
             for (const a in series) {
-                series[a] = series[a] / MS_IN_A_DAY
+                series[a] = series[a] / ms(opt.capacityUnit)
             }
             break
         case EChartFormat.PERCENTAGE:
-            const days = moment.duration(moment(endDate).diff(startDate)).asDays()
-            for (const author in series) {
-                if (opt.capacity) {
-                    if (author in opt.capacity) {
-                        series[author] = series[author] / opt.capacity[author] / MS_IN_A_DAY * 100
-                    } else {
-                        delete series[author]
-                    }
-                } else {
-                    series[author] = series[author] / days / MS_IN_A_DAY * 100
-                }
-            }
-            break
-        default:
+          let capacityUnitMs = ms(opt.capacityUnit)
+          for (const author in series) {
+              if (opt.capacity) {
+                  if (author in opt.capacity) {
+                      series[author] = series[author] / opt.capacity[author] / capacityUnitMs * 100
+                  } else {
+                      delete series[author]
+                  }
+              } else {
+                  series[author] = series[author] / opt.maxCapacity / capacityUnitMs * 100
+              }
+          }
+          break
+          default:
             throw new Error('Invalid chart format')
     }
 
