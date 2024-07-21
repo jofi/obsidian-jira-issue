@@ -29,6 +29,7 @@ function createChart(type: string, labels: string[], series: IChartSeries[]) {
 type: ${type}
 width: ${CHART_WIDTH}
 labels: [${labels}]
+beginAtZero: true
 series:
 ${series.map(s => {
         return `  - title: ${s.title}
@@ -38,33 +39,52 @@ ${series.map(s => {
 }
 
 
-export async function getWorklogPerDay(projectKeyOrId: string, startDate: string, endDate: string = 'now()', options: { authors?: string[] } = {}) {
-    const worklogs = await API.macro.getWorkLogByDates(projectKeyOrId, startDate, endDate)
-    const opts = {
-      authors: options.authors || null
+export async function getWorklogPerDay(projectKeyOrId: string, startDate: string, endDate: string = 'now()', authors: string[] = null, options: { format?: EChartFormat, capacity?: ISeries, capacityUnit?: string, maxCapacity?: number } = {} ) {
+    const format = options.format || EChartFormat.HOURS
+    const opt = {
+        format: format,
+        capacity: options.capacity || null,
+        capacityUnit: options.capacityUnit || DEFAULT_CAPACITY_UNITS.get(format),
+        maxCapacity: options.maxCapacity || moment.duration(moment(endDate).diff(startDate)).asDays()
     }
-
+    const worklogs = await API.macro.getWorkLogByDates(projectKeyOrId, startDate, endDate, authors)
     const labels = []
     const emptySeries: ISeries = {}
     const intervalStart = moment(startDate)
     const intervalEnd = moment(endDate)
-    for (const i = intervalStart.clone(); i < intervalEnd; i.add(1, 'd')) {
+    for (const i = intervalStart.clone(); i <= intervalEnd; i.add(1, 'd')) {
         labels.push(i.format('YYYY-MM-DD'))
         emptySeries[i.format('YYYY-MM-DD')] = 0
     }
     const usersSeries: IMultiSeries = {}
     for (const worklog of worklogs) {
         const author = worklog.author.emailAddress
-        if ( (opts.authors == null) || ((opts.authors != null) && (opts.authors.includes(author))) ) {
+        if ( (authors == null) || ((authors != null) && (authors.includes(author))) ) {
           if (!usersSeries[author]) {
               usersSeries[author] = Object.assign({}, emptySeries)
           }
           const worklogStart = moment(worklog.started).format('YYYY-MM-DD')
           if (worklogStart in usersSeries[author]) {
-              usersSeries[author][worklogStart] += worklog.timeSpentSeconds
+              usersSeries[author][worklogStart] += worklog.timeSpentSeconds * 1000 //make it miliseconds
           }
         }
     }
+
+    Object.entries(usersSeries).map(u => {
+      let series = u[1]
+      switch (opt.format) {
+        case EChartFormat.HOURS:
+        case EChartFormat.MANDAYS:
+        case EChartFormat.DAYS:
+            for (const day in series) {
+                series[day] = series[day] / ms(opt.capacityUnit)
+            }
+            break
+        // Do not support percentage here - it does not make sense
+        default:
+            throw new Error('Invalid chart format')
+      }
+    })
 
     return createChart('line',
         labels,
@@ -77,7 +97,7 @@ export async function getWorklogPerDay(projectKeyOrId: string, startDate: string
 }
 
 // Capacity is in days, or Mandays
-export async function getWorklogPerUser(projectKeyOrId: string, startDate: string, endDate: string = 'now()', options: { format?: EChartFormat, capacity?: ISeries, capacityUnit?: string, maxCapacity?: number } = {}) {
+export async function getWorklogPerUser(projectKeyOrId: string, startDate: string, endDate: string = 'now()', authors: string[] = null, options: { format?: EChartFormat, capacity?: ISeries, capacityUnit?: string, maxCapacity?: number } = {}) {
     const format = options.format || EChartFormat.PERCENTAGE
     const opt = {
         format: format,
@@ -85,7 +105,7 @@ export async function getWorklogPerUser(projectKeyOrId: string, startDate: strin
         capacityUnit: options.capacityUnit || DEFAULT_CAPACITY_UNITS.get(format),
         maxCapacity: options.maxCapacity || moment.duration(moment(endDate).diff(startDate)).asDays()
     }
-    const series = await API.macro.getWorkLogSeriesByUser(projectKeyOrId, startDate, endDate)
+    const series = await API.macro.getWorkLogSeriesByUser(projectKeyOrId, startDate, endDate, authors)
     switch (opt.format) {
         case EChartFormat.HOURS:
         case EChartFormat.MANDAYS:

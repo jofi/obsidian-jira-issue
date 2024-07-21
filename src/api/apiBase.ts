@@ -28,8 +28,8 @@ export async function getSearchResults(query: string, options: { limit?: number,
     return cacheWrapper(JiraClient.getSearchResults)(query, options)
 }
 
-export async function getWorklogOfIssue(issueKey: string, options: { maxResults?: number, startAt?: number, account?: IJiraIssueAccountSettings } = {}): Promise<IJiraWorklog[]> {
-  return cacheWrapper(JiraClient.getWorklogOfIssue)(issueKey, options)
+export async function getWorklogOfIssue(issueKey: string, authors: string[] = null, options: { maxResults?: number, startAt?: number, account?: IJiraIssueAccountSettings } = {}): Promise<IJiraWorklog[]> {
+  return cacheWrapper(JiraClient.getWorklogOfIssue)(issueKey, authors, options)
 }
 
 export async function getDevStatus(issueId: string, options: { account?: IJiraIssueAccountSettings } = {}): Promise<IJiraDevStatus> {

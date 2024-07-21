@@ -224,7 +224,7 @@ export default {
     },
 
     // Get all worklogs for a specific issue, handling pagination
-    async getWorklogOfIssue(issueKey: string, options: { startAt?: number, maxResults?: number, account?: IJiraIssueAccountSettings } = {}): Promise<IJiraWorklog[]> {
+    async getWorklogOfIssue(issueKey: string, authors: string[] = null, options: { startAt?: number, maxResults?: number, account?: IJiraIssueAccountSettings } = {}): Promise<IJiraWorklog[]> {
       const opt = {
         maxResults: options.maxResults || 100,
         startAt: options.startAt || 0,
@@ -264,6 +264,13 @@ export default {
               break;
           }
       }
+
+      if (authors != null) {
+        allWorklogs = allWorklogs.filter( worklog => {
+          return authors.includes(worklog.author.emailAddress)
+        })
+      }
+
       return allWorklogs;
     },
 

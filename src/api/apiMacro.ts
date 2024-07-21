@@ -10,9 +10,15 @@ function dateTimeToDate(dateTime: string): string {
     return dateTime;
 }
 
-async function getIssuesWithWorklogByDates(projectKeysOrIds: string, startDate: string, endDate: string = 'now()'): Promise<IJiraIssue[]> {
+async function getIssuesWithWorklogByDates(projectKeysOrIds: string, startDate: string, endDate: string = 'now()', authors: string[] = null): Promise<IJiraIssue[]> {
+  let authorsCondition:string = ""
+  if (authors != null) {
+    // console.log(authors)
+    const authorsList = authors.map(a => `'${a}'`).join(', ')
+    authorsCondition = `AND worklogAuthor in ( ${authorsList} )`
+  }
   const searchResults = await API.base.getSearchResults(
-    `project IN (${projectKeysOrIds}) AND worklogDate >= ${dateTimeToDate(startDate)} AND worklogDate < ${dateTimeToDate(endDate)}`,
+    `project IN (${projectKeysOrIds}) AND worklogDate >= ${dateTimeToDate(startDate)} AND worklogDate <= ${dateTimeToDate(endDate)} ${authorsCondition}`,
     { limit: 150, fields: ['key'] }
   )
   try {
@@ -23,15 +29,15 @@ async function getIssuesWithWorklogByDates(projectKeysOrIds: string, startDate: 
   }
 }
 
-async function getWorklogOfIssueByDates(issueKey: string, startDate: string, endDate: string): Promise<IJiraWorklog[]> {
-  const authorWorklogs = await API.base.getWorklogOfIssue(issueKey)
+async function getWorklogOfIssueByDates(issueKey: string, startDate: string, endDate: string, authors: string[] = null): Promise<IJiraWorklog[]> {
+  const authorWorklogs = await API.base.getWorklogOfIssue(issueKey, authors)
 
   const startDateMoment: moment.Moment = moment(startDate);
   const endDateMoment: moment.Moment = moment(endDate);
 
   const filteredWorklogs = authorWorklogs.filter(worklog => {
     const worklogDate = moment(worklog.started);
-    return worklogDate.isBetween(startDateMoment, endDateMoment);
+    return worklogDate.isBetween(startDateMoment, endDateMoment, undefined, "[]");
   });
 
   return filteredWorklogs;
@@ -62,14 +68,14 @@ export async function getWorkLogBySprintId(projectKeyOrId: string, sprintId: num
     return await getWorkLogByDates(projectKeyOrId, sprint.startDate, sprint.endDate)
 }
 
-export async function getWorkLogByDates(projectKeysOrIds: string, startDate: string, endDate: string = 'now()'): Promise<IJiraWorklog[]> {
-  const issues = await getIssuesWithWorklogByDates(projectKeysOrIds, startDate, endDate);
+export async function getWorkLogByDates(projectKeysOrIds: string, startDate: string, endDate: string = 'now()', authors: string[] = null): Promise<IJiraWorklog[]> {
+  const issues = await getIssuesWithWorklogByDates(projectKeysOrIds, startDate, endDate, authors);
   const issueKeys = issues.map(issue => {return issue.key});
 
   let allWorklogs: IJiraWorklog[] = [];
 
   for (const issueKey of issueKeys) {
-    const worklogs = await getWorklogOfIssueByDates(issueKey,startDate, endDate);
+    const worklogs = await getWorklogOfIssueByDates(issueKey,startDate, endDate, authors);
     allWorklogs = allWorklogs.concat(worklogs);
   }
 
@@ -91,8 +97,8 @@ export async function getWorkLogByDatesOld(projectKeyOrId: string, startDate: st
     return worklogs
 }
 
-export async function getWorkLogSeriesByUser(projectKeyOrId: string, startDate: string, endDate: string = 'now()'): Promise<ISeries> {
-    const worklogs = await API.macro.getWorkLogByDates(projectKeyOrId, startDate, endDate)
+export async function getWorkLogSeriesByUser(projectKeyOrId: string, startDate: string, endDate: string = 'now()', authors: string[] = null): Promise<ISeries> {
+    const worklogs = await API.macro.getWorkLogByDates(projectKeyOrId, startDate, endDate, authors)
     const series: ISeries = {}
     for (const worklog of worklogs) {
         const author = worklog.author.emailAddress
