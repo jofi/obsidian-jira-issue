@@ -38,7 +38,7 @@ async function getWorklogsOfIssueByAuthorAndDates(issueKey: string, authorEmail:
   return filteredWorklogs;
 }
 
-  async function getWorklogsOfAuthorAndDates(projectKeysOrIds: string, authorEmail: string, startDate: moment.Moment, endDate: moment.Moment): Promise<IJiraWorklog[]> {
+async function getWorklogsOfAuthorAndDates(projectKeysOrIds: string, authorEmail: string, startDate: moment.Moment, endDate: moment.Moment): Promise<IJiraWorklog[]> {
   const issueKeys = await getIssuesOfProjectsWithWorklogsBetweenDates(projectKeysOrIds, startDate, endDate);
   let allWorklogs: IJiraWorklog[] = [];
 

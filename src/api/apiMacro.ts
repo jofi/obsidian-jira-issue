@@ -32,12 +32,12 @@ async function getIssuesWithWorklogByDates(projectKeysOrIds: string, startDate: 
 async function getWorklogOfIssueByDates(issueKey: string, startDate: string, endDate: string, authors: string[] = null): Promise<IJiraWorklog[]> {
   const authorWorklogs = await API.base.getWorklogOfIssue(issueKey, authors)
 
-  const startDateMoment: moment.Moment = moment(startDate);
-  const endDateMoment: moment.Moment = moment(endDate);
+  const startDateMoment: moment.Moment = moment(startDate).startOf('day');
+  const endDateMoment: moment.Moment = moment(endDate).endOf('day');
 
   const filteredWorklogs = authorWorklogs.filter(worklog => {
     const worklogDate = moment(worklog.started);
-    return worklogDate.isBetween(startDateMoment, endDateMoment, undefined, "[]");
+    return worklogDate.isBetween(startDateMoment, endDateMoment);
   });
 
   return filteredWorklogs;
