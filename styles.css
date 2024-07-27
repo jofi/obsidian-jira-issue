@@ -315,6 +315,14 @@ th {
     padding: 0;
 }
 
+.jira-issue-container .table tbody tr.selected {
+  background-color: lightblue;
+}
+
+.jira-issue-container .table tbody tr.selected :nth-child(even) {
+  background-color: lightblue;
+}
+
 .jira-issue-container .table.is-striped tbody tr:not(.is-selected):nth-child(even) {
     background-color: #fafafa;
 }

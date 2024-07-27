@@ -8,7 +8,8 @@ interface RequestOptions {
     path: string
     queryParameters?: URLSearchParams
     account?: IJiraIssueAccountSettings
-    noBasePath?: boolean
+    noBasePath?: boolean,
+    body?: any
 }
 
 function getMimeType(imageBuffer: ArrayBuffer): string {
@@ -69,6 +70,8 @@ function buildHeaders(account: IJiraIssueAccountSettings): Record<string, string
     } else if (account.authenticationType === EAuthenticationTypes.BEARER_TOKEN) {
         requestHeaders['Authorization'] = `Bearer ${account.bareToken}`
     }
+    requestHeaders['Content-Type'] = 'application/json'
+    requestHeaders['Accept'] = 'application/json'
     return requestHeaders
 }
 
@@ -116,6 +119,7 @@ async function sendRequestWithAccount(account: IJiraIssueAccountSettings, reques
         url: buildUrl(account.host, requestOptions),
         headers: buildHeaders(account),
         contentType: 'application/json',
+        body: requestOptions.body,
     }
     try {
         response = await requestUrl(requestUrlParam)
@@ -455,4 +459,37 @@ export default {
             }
         )
     },
+    async createWorklog(issueKey: string, worklogData: IJiraWorklog, options: { account?: IJiraIssueAccountSettings } = {}): Promise<IJiraWorklog> {
+      const opt = {
+          account: options.account || null
+      }
+      return await sendRequest(
+          {
+              method: 'POST',
+              path: `/rest/api/2/issue/${issueKey}/worklog`,
+              noBasePath: true,
+              account: opt.account,
+              body: JSON.stringify({
+                started: worklogData.started+"T12:34:00.000+0000",
+                timeSpent: worklogData.timeSpent,
+                comment: worklogData.comment,
+                // comment: {
+                //     content: [
+                //       {
+                //         content: [
+                //           {
+                //             text: worklogData.comment,
+                //             type: "text"
+                //           }
+                //         ],
+                //         type: "paragraph"
+                //       }
+                //     ],
+                //     type: "doc",
+                //     version: 1
+                //   },            
+              })
+          }
+      )
+  }
 }

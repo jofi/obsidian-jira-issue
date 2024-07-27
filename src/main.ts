@@ -8,10 +8,12 @@ import { InlineIssueRenderer } from './rendering/inlineIssueRenderer'
 import { IssueFenceRenderer } from './rendering/issueFenceRenderer'
 import { SearchFenceRenderer } from './rendering/searchFenceRenderer'
 import { SearchWizardModal } from './modals/searchWizardModal'
+import { CreateWorklogModal } from './modals/createWorklogModal'
 import { ViewPluginManager } from './rendering/inlineIssueViewPlugin'
 import { QuerySuggest } from './suggestions/querySuggest'
 import { setupIcons } from './icons/icons'
 import API from './api/api'
+import { IJiraWorklog } from './interfaces/issueInterfaces'
 
 // TODO: text on mobile and implement horizontal scrolling
 
@@ -93,6 +95,40 @@ export default class JiraIssuePlugin extends Plugin {
                 editor.replaceRange('```jira-count\n\n```', editor.getCursor())
             }
         })
+        this.addCommand({
+          id: 'open-worklog-dialog',
+          name: 'Open Worklog Dialog',
+          editorCallback: (editor: Editor) => {
+            const selectedText = editor.getSelection();
+            const modal = new CreateWorklogModal(this.app, editor, selectedText, async (result:IJiraWorklog) => {
+              if (result) {
+                if (result.issueKey) {
+                  //var wl = await JiraClient.createWorklog(result.issueKey, result)
+                  var str = `- ${result.timeSpent} - JIRA:${result.issueKey}:\n` +
+                  "```text\n" +
+                  result.comment + "\n" +
+                  "```\n" +
+                  "```sh\n" +
+                  "multiline_string=$(cat <<EOF\n" +
+                  result.comment + "\n" +
+                  "EOF\n" + 
+                  ")\n\n" +
+                  `jira-cli issue worklog add "${result.issueKey}" "${result.timeSpent}" --comment \"$multiline_string\" --started "${result.started}" --no-input\n` +
+                  "```\n";
+                  editor.replaceSelection(str)
+                } else {
+                  var str = `- ${result.timeSpent} - NOJIRA:\n` + 
+                  "```text\n" +
+                  result.comment + "\n" +
+                  "```\n";
+                  editor.replaceSelection(str)
+                }
+              } else {
+                new Notice('JiraIssue: No worklog was created!!!')
+              }
+            }).open();
+          }
+        })
     }
 
     onunload() {
@@ -106,4 +142,5 @@ export default class JiraIssuePlugin extends Plugin {
         window.$ji = API
     }
 }
+
 
