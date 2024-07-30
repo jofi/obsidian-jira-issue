@@ -107,15 +107,17 @@ export default class JiraIssuePlugin extends Plugin {
                   var str = `- ${result.timeSpent} - JIRA:${result.issueKey}:\n` +
                   "```text\n" +
                   result.comment + "\n" +
-                  "```\n" +
-                  "```sh\n" +
-                  "multiline_string=$(cat <<EOF\n" +
+                  "```\n";
+                  editor.replaceSelection(str)
+                  //"```sh\n" +
+                  
+                  var jcli_str: string = "multiline_string=$(cat <<EOF\n" +
                   result.comment + "\n" +
                   "EOF\n" + 
                   ")\n\n" +
-                  `jira-cli issue worklog add "${result.issueKey}" "${result.timeSpent}" --comment \"$multiline_string\" --started "${result.started}" --no-input\n` +
-                  "```\n";
-                  editor.replaceSelection(str)
+                  `jira-cli issue worklog add "${result.issueKey}" "${result.timeSpent}" --comment \"$multiline_string\" --started "${result.started}" --no-input\n`;
+                  //"```\n";
+                  copyToClipboard(jcli_str)
                 } else {
                   var str = `- ${result.timeSpent} - NOJIRA:\n` + 
                   "```text\n" +
@@ -143,4 +145,18 @@ export default class JiraIssuePlugin extends Plugin {
     }
 }
 
-
+// Define the copyToClipboard function inside the plugin file
+function copyToClipboard(text: string) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';  // Avoid scrolling to bottom
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+      document.execCommand('copy');
+  } catch (err) {
+      console.error('Failed to copy text: ', err);
+  }
+  document.body.removeChild(textarea);
+}
