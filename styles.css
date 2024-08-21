@@ -315,14 +315,6 @@ th {
     padding: 0;
 }
 
-.jira-issue-container .table tbody tr.selected {
-  background-color: lightblue;
-}
-
-.jira-issue-container .table tbody tr.selected :nth-child(even) {
-  background-color: lightblue;
-}
-
 .jira-issue-container .table.is-striped tbody tr:not(.is-selected):nth-child(even) {
     background-color: #fafafa;
 }
@@ -533,4 +525,24 @@ svg.svg-icon.jira-issue-visible {
 svg.svg-icon.jira-issue-hidden {
     stroke: none;
     fill: currentColor;
+}
+
+/* Style for the selected row */
+.jira-issue-container .table.is-striped.is-dark tbody tr.selected {
+    background-color: #2c3e50; /* Darker background color for better contrast */
+    color: #ecf0f1; /* Lighter text color for readability */
+    border-left: 4px solid #3498db; /* Highlight with a left border */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15); /* Subtle shadow for a raised effect */
+    transition: background-color 0.3s, box-shadow 0.3s; /* Smooth transition for interaction */
+}
+
+/* Optional: Add hover effect to the selected row */
+.jira-issue-container .table.is-striped.is-dark tbody tr.selected:hover {
+    background-color: #34495e; /* Slightly different color on hover */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); /* Enhanced shadow on hover */
+}
+
+/* Optional: Make text bold in selected row */
+.jira-issue-container .table.is-striped.is-dark tbody tr.selected td {
+    font-weight: bold;
 }
