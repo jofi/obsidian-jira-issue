@@ -20,3 +20,6 @@ data.json
 
 # Reports
 coverage
+
+# Personal
+deploy-to-pkb.sh
