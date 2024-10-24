@@ -1,11 +1,10 @@
-import { Modal, Editor, App, Notice, Setting } from "obsidian";
+import { TFile, Modal, Editor, App, Notice, Setting } from "obsidian";
 import { SettingsData } from "../settings"
 import { IJiraSearchResults, IJiraWorklog, toDefaultedIssue } from '../interfaces/issueInterfaces'
 import { renderTableColumn } from "../rendering/renderTableColumns"
 import JiraClient from '../client/jiraClient'
 import moment from "moment";
 import RC from "../rendering/renderingCommon"
-
 export class CreateWorklogModal extends Modal {
   private editor: Editor;
   private worklogData: IJiraWorklog;
@@ -14,10 +13,11 @@ export class CreateWorklogModal extends Modal {
   constructor(app: App, editor: Editor, selectedText: string, onSubmit: (result: IJiraWorklog) => void) {
     super(app);
     this.editor = editor;
+
     this.worklogData = {
-      id: undefined, 
-      started: moment(moment.now()).format("YYYY-MM-DD"), 
-      comment: selectedText, 
+      id: undefined,
+      started: checkAndExtractDate(app),
+      comment: selectedText,
       timeSpent: '30m',
       author: undefined,
       create: undefined,
@@ -34,33 +34,34 @@ export class CreateWorklogModal extends Modal {
     contentEl.createEl("h2", { text: "Create Jira Worklog" })
 
     new Setting(contentEl)
-        .setName('Comment')
-        .addTextArea(textArea => textArea
-            .setPlaceholder("Comment")
-            .setValue(this.worklogData.comment)
-            .onChange(async value => {
-                this.worklogData.comment = value
-            }))
+      .setName('Comment')
+      .addTextArea(textArea => textArea
+        .setPlaceholder("Comment")
+        .setValue(this.worklogData.comment)
+        .onChange(async value => {
+          this.worklogData.comment = value
+        }))
 
     new Setting(contentEl)
-        .setName('Started')
-        .addMomentFormat(text => { text
+      .setName('Started')
+      .addMomentFormat(text => {
+        text
           .setPlaceholder("Started")
-          .setValue(this.worklogData.started)
-          .onChange(async value => {
-              this.worklogData.started = value
-          });
-          text.inputEl.type = "date"
-        })
-    
+        .setValue(this.worklogData.started)
+        .onChange(async value => {
+          this.worklogData.started = value
+        });
+        text.inputEl.type = "date"
+      })
+
     new Setting(contentEl)
       .setName('Duration')
       .addText(text => text
         .setPlaceholder("Duration")
         .setValue(this.worklogData.timeSpent)
         .onChange(async value => {
-            this.worklogData.timeSpent = value
-      }))
+          this.worklogData.timeSpent = value
+        }))
 
     new Setting(contentEl)
       .setName('Search Jira')
@@ -68,9 +69,9 @@ export class CreateWorklogModal extends Modal {
         .setPlaceholder("Search String")
         .setValue("")
         .onChange(async value => {
-          const issues:IJiraSearchResults = await this.searchJiraIssues(value);
+          const issues: IJiraSearchResults = await this.searchJiraIssues(value);
           await this.updateIssuesTable(issuesTable, issues);
-      }))
+        }))
 
     const issuesDiv = contentEl.createDiv();
     const issuesTable = issuesDiv.createEl('table', { cls: `table is-bordered is-striped is-narrow is-hoverable is-fullwidth ${RC.getTheme()}` })
@@ -81,9 +82,9 @@ export class CreateWorklogModal extends Modal {
         .setButtonText("Submit")
         .setCta()
         .onClick(() => {
-            this.close()
-            this.onSubmit(this.worklogData)
-      }))
+          this.close()
+          this.onSubmit(this.worklogData)
+        }))
   }
 
   async searchJiraIssues(str: string): Promise<IJiraSearchResults> {
@@ -105,20 +106,20 @@ export class CreateWorklogModal extends Modal {
     this.worklogData.issueKey = undefined
   }
 
-  async renderSearchResultsTableBody(table: HTMLElement, searchResults: IJiraSearchResults) : Promise<void> {
+  async renderSearchResultsTableBody(table: HTMLElement, searchResults: IJiraSearchResults): Promise<void> {
     const tbody = createEl('tbody', { parent: table })
     for (let issue of searchResults.issues) {
-        issue = toDefaultedIssue(issue)
-        const row = createEl('tr', { parent: tbody })
-        row.onclick = () => {
-          table.querySelectorAll('tr').forEach(r => r.removeClass('selected'));
-          row.addClass('selected');
-          this.worklogData.issueKey = this.getSelectedIssue(table);
-          //refresh
-          this.open
-        };
-        const columns = SettingsData.searchColumns
-        await renderTableColumn(columns, issue, row)
+      issue = toDefaultedIssue(issue)
+      const row = createEl('tr', { parent: tbody })
+      row.onclick = () => {
+        table.querySelectorAll('tr').forEach(r => r.removeClass('selected'));
+        row.addClass('selected');
+        this.worklogData.issueKey = this.getSelectedIssue(table);
+        //refresh
+        this.open
+      };
+      const columns = SettingsData.searchColumns
+      await renderTableColumn(columns, issue, row)
     }
   }
 
@@ -140,4 +141,35 @@ export class CreateWorklogModal extends Modal {
     const textToInsert = `Logged ${duration} hours`;
     this.editor.replaceSelection(textToInsert);
   }
+}
+
+function checkAndExtractDate(app: App) {
+  const activeFile: TFile | null = app.workspace.getActiveFile();
+  if (activeFile) {
+    // Get the current file name (page title)
+    const fileTitle = activeFile.basename;
+
+    // Define a regex to match the format YYYY-MM-DD followed by a weekday name
+    const regex = /^(\d{4}-\d{2}-\d{2}) \w+$/;
+
+    // Check if the title matches the format
+    const match = fileTitle.match(regex);
+
+    if (match && match[1]) {
+      // Extract the date part (YYYY-MM-DD)
+      const datePart = match[1];
+
+      // Convert the date part to a moment object
+      const momentDate = moment(datePart, "YYYY-MM-DD").format("YYYY-MM-DD");
+
+      // You can now use the momentDate object
+      console.log("Parsed moment date:", momentDate.format());
+
+      return momentDate;
+    } else {
+      console.log("The page title does not match the format.");
+    }
+  }
+  
+  return moment(moment.now()).format("YYYY-MM-DD");
 }

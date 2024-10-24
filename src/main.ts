@@ -116,32 +116,16 @@ export default class JiraIssuePlugin extends Plugin {
                     editor.replaceSelection(wltext);
                   } catch (error) {
                     console.error("Failed to submit worklog:", error);
-                    // Handle any UI updates or error notifications here
-                    //var wl = await JiraClient.createWorklog(result.issueKey, result)
-                    var str = `- ${result.timeSpent} - JIRA:${result.issueKey}:\n` +
-                    "```text\n" +
-                    result.comment + "\n" +
-                    "```\n";
-                    editor.replaceSelection(str)
-                    //"```sh\n" +
-                    
-                    var jcli_str: string = "multiline_string=$(cat <<EOF\n" +
-                    result.comment + "\n" +
-                    "EOF\n" + 
-                    ")\n\n" +
-                    `jira-cli issue worklog add "${result.issueKey}" "${result.timeSpent}" --comment \"$multiline_string\" --started "${result.started}" --no-input\n`;
-                    //"```\n";
-                    copyToClipboard(jcli_str)
+                    new Notice('JiraIssue: No worklog was created in Jira!!!')
+                    const wltext = generateFaliedWorklogMarkdown(result.issueKey, result.timeSpent, result.comment)
+                    editor.replaceSelection(wltext);
                   }
                 } else {
-                  var str = `- ${result.timeSpent} - NOJIRA:\n` + 
-                  "```text\n" +
-                  result.comment + "\n" +
-                  "```\n";
-                  editor.replaceSelection(str)
+                  const wltext = generateNoJiraWorklogMarkdown(result.timeSpent, result.comment)
+                  editor.replaceSelection(wltext);
                 }
               } else {
-                new Notice('JiraIssue: No worklog was created!!!')
+                new Notice('JiraIssue: No log was created!!!')
               }
             }).open();
           }
@@ -207,8 +191,7 @@ function generateWorklogMarkdown(issueId: string, worklogId: string, duration: s
   const timestamp = new Date().toISOString(); // Current timestamp
   const worklogLink = `${jiraUrl}/browse/${issueId}?focusedWorklogId=${worklogId}`; // Link directly to the worklog
   
-  return `
-#### ✅ Work ${duration}
+  return `#### ✅ Work ${duration}
 
 - **Jira:** JIRA:${issueId}
 - **Worklog:** [View](${worklogLink})
@@ -217,19 +200,33 @@ function generateWorklogMarkdown(issueId: string, worklogId: string, duration: s
 \`\`\`
 ${comment}
 \`\`\`  
-
 `;
-
-//   return `
-// #### Worklog Submitted
-// - **Duration:** ${duration}
-// - **Comment:** ${comment}
-// - **Worklog:** JIRA:${issueId} [View Worklog](${worklogLink})
-// - **Timestamp:** ${timestamp}
-
-// ✅ Worklog successfully submitted via Lambda.
-//   `;
 }
+
+function generateFaliedWorklogMarkdown(issueId: string, duration: string, comment: string,): string {
+  const timestamp = new Date().toISOString(); // Current timestamp
+   return `#### ❌ Work ${duration}
+- **Jira:** JIRA:${issueId}
+- **Timestamp:** ${timestamp}
+- **Comment:**
+\`\`\`
+${comment}
+\`\`\`  
+`;
+}
+
+
+function generateNoJiraWorklogMarkdown(duration: string, comment: string,): string {
+  const timestamp = new Date().toISOString(); // Current timestamp
+   return `#### 📝 ${duration}
+- **Timestamp:** ${timestamp}
+- **Notes:**
+\`\`\`
+${comment}
+\`\`\`  
+`;
+}
+
 
 // Define the copyToClipboard function inside the plugin file
 function copyToClipboard(text: string) {
