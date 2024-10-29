@@ -8,6 +8,8 @@ import RC from "../rendering/renderingCommon"
 export class CreateWorklogModal extends Modal {
   private editor: Editor;
   private worklogData: IJiraWorklog;
+  private currentUserOnly: boolean;
+  private summary: string;
   private onSubmit: (result: IJiraWorklog) => void
 
   constructor(app: App, editor: Editor, selectedText: string, onSubmit: (result: IJiraWorklog) => void) {
@@ -25,6 +27,8 @@ export class CreateWorklogModal extends Modal {
       updateAuthor: undefined,
       updated: undefined
     };
+    this.currentUserOnly = true;
+    this.summary = "";
     this.onSubmit = onSubmit;
   }
 
@@ -47,10 +51,10 @@ export class CreateWorklogModal extends Modal {
       .addMomentFormat(text => {
         text
           .setPlaceholder("Started")
-        .setValue(this.worklogData.started)
-        .onChange(async value => {
-          this.worklogData.started = value
-        });
+          .setValue(this.worklogData.started)
+          .onChange(async value => {
+            this.worklogData.started = value
+          });
         text.inputEl.type = "date"
       })
 
@@ -64,11 +68,23 @@ export class CreateWorklogModal extends Modal {
         }))
 
     new Setting(contentEl)
+      .setName('Current User')
+      .addToggle(val => val.setValue(this.currentUserOnly)
+        .onChange(async value => {
+          this.currentUserOnly = value
+          if (this.summary != "") {
+            const issues: IJiraSearchResults = await this.searchJiraIssues(this.summary);
+            await this.updateIssuesTable(issuesTable, issues);
+          }
+        }))
+
+    new Setting(contentEl)
       .setName('Search Jira')
       .addText(text => text
         .setPlaceholder("Search String")
         .setValue("")
         .onChange(async value => {
+          this.summary = value;
           const issues: IJiraSearchResults = await this.searchJiraIssues(value);
           await this.updateIssuesTable(issuesTable, issues);
         }))
@@ -89,7 +105,13 @@ export class CreateWorklogModal extends Modal {
 
   async searchJiraIssues(str: string): Promise<IJiraSearchResults> {
     let summary: string = str ? str : ""
-    const query: string = "summary ~'" + summary + "' AND project IN (CS, DE, ADEL, IPM) AND (assignee = currentUser() or \"Solution Manager[User Picker (single user)]\" = currentUser() or \"Solution Manager Backup[User Picker (single user)]\" = currentUser()) ORDER BY priority DESC, updated ASC, due ASC, cf[10357] ASC, summary ASC"
+    let query: string
+    if (this.currentUserOnly) {
+      query = "summary ~'" + summary + "' AND project IN (CS, DE, ADEL, IPM) AND (assignee = currentUser() or \"Solution Manager[User Picker (single user)]\" = currentUser() or \"Solution Manager Backup[User Picker (single user)]\" = currentUser()) ORDER BY priority DESC, updated ASC, due ASC, cf[10357] ASC, summary ASC"
+    } else {
+      query = "summary ~'" + summary + "' AND project IN (CS, DE, ADEL, IPM) ORDER BY priority DESC, updated ASC, due ASC, cf[10357] ASC, summary ASC"
+    }
+
     try {
       const result: IJiraSearchResults = await JiraClient.getSearchResults(query);
       return result;
@@ -170,6 +192,6 @@ function checkAndExtractDate(app: App) {
       console.log("The page title does not match the format.");
     }
   }
-  
+
   return moment(moment.now()).format("YYYY-MM-DD");
 }
